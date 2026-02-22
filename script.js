@@ -828,10 +828,8 @@ async function goHome() {
 
 
 
-let unsubscribeRanking = null;
-
 let previousRanks = {};
-
+let unsubscribeRanking = null;
 
 function showRanking() {
   app.innerHTML = `
@@ -843,9 +841,7 @@ function showRanking() {
   const rankingDiv = document.getElementById("rankingList");
   const currentId = localStorage.getItem("currentUser");
 
-  if (typeof unsubscribeRanking === "function") {
-    unsubscribeRanking();
-  }
+  if (unsubscribeRanking) unsubscribeRanking();
 
   unsubscribeRanking = onSnapshot(collection(db, "users"), (snapshot) => {
 
