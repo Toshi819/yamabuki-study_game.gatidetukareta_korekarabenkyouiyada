@@ -24,7 +24,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
-const APP_VERSION = "1.0.5";
+const APP_VERSION = "1.0.6";
 
 console.log("script loaded");
 const app = document.getElementById("app");
@@ -828,10 +828,10 @@ async function goHome() {
 
 
 
-let previousRanks = {};
 let unsubscribeRanking = null;
 
 function showRanking() {
+
   app.innerHTML = `
     <h2>ランキング</h2>
     <div id="rankingList">読み込み中...</div>
@@ -841,94 +841,58 @@ function showRanking() {
   const rankingDiv = document.getElementById("rankingList");
   const currentId = localStorage.getItem("currentUser");
 
-  if (unsubscribeRanking) unsubscribeRanking();
+  if (typeof unsubscribeRanking === "function") {
+    unsubscribeRanking();
+  }
 
-  unsubscribeRanking = onSnapshot(collection(db, "users"), (snapshot) => {
+  unsubscribeRanking = onSnapshot(
+    collection(db, "users"),
+    (snapshot) => {
 
-    let ranking = [];
+      let ranking = [];
 
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      ranking.push({
-        id: data.id,
-        name: data.name,
-        totalScore: Number(data.totalScore || 0)
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+
+        ranking.push({
+          id: docSnap.id,
+          name: data.name,
+          totalScore: Number(data.totalScore) || 0
+        });
       });
-    });
 
-    // 🔥 数値ソート保証
-    ranking.sort((a, b) => b.totalScore - a.totalScore);
+      // 🔥 数値確定ソート
+      ranking.sort((a, b) => b.totalScore - a.totalScore);
 
-    let newRanks = {};
-    ranking.forEach((user, index) => {
-      newRanks[user.id] = index + 1;
-    });
+      let html = "";
 
-    const myRank = newRanks[currentId];
+      ranking.forEach((user, index) => {
 
-    // 🔥 表示対象を決定
-    let displayUsers = [];
+        let medal = "";
+        if (index === 0) medal = "🥇";
+        else if (index === 1) medal = "🥈";
+        else if (index === 2) medal = "🥉";
 
-    // ① 上位10位
-    displayUsers = ranking.slice(0, 10);
+        const isMe = user.id === currentId;
 
-    // ② 自分が10位以下なら周囲も追加
-    if (myRank > 10) {
-      const start = Math.max(myRank - 3, 0);
-      const end = Math.min(myRank + 2, ranking.length);
-      const around = ranking.slice(start, end);
+        html += `
+          <div class="ranking-item ${isMe ? "ranking-me" : ""}">
+            ${medal} ${index + 1}位
+            ${user.name}
+            <strong>${user.totalScore}</strong>
+          </div>
+        `;
+      });
 
-      displayUsers = [...displayUsers, ...around];
+      rankingDiv.innerHTML = html;
     }
-
-    // 重複削除
-    const seen = new Set();
-    displayUsers = displayUsers.filter(u => {
-      if (seen.has(u.id)) return false;
-      seen.add(u.id);
-      return true;
-    });
-
-    let html = "";
-
-    displayUsers.forEach(user => {
-      const rank = newRanks[user.id];
-
-      let medal = "";
-      if (rank === 1) medal = "🥇";
-      else if (rank === 2) medal = "🥈";
-      else if (rank === 3) medal = "🥉";
-
-      let indicator = "";
-      if (previousRanks[user.id]) {
-        if (rank < previousRanks[user.id]) {
-          indicator = `<span class="rank-up">▲UP</span>`;
-        } else if (rank > previousRanks[user.id]) {
-          indicator = `<span class="rank-down">▼DOWN</span>`;
-        }
-      }
-
-      let extraClass = "";
-      if (rank === 1) extraClass += " ranking-first";
-      if (user.id === currentId) extraClass += " ranking-me";
-
-      html += `
-        <div class="ranking-item ${extraClass}">
-          ${medal} ${rank}位
-          ${user.name}
-          <strong>${user.totalScore}</strong>
-          ${indicator}
-        </div>
-      `;
-    });
-
-    rankingDiv.innerHTML = html;
-    previousRanks = newRanks;
-  });
+  );
 
   document.getElementById("backBtn")
     .addEventListener("click", () => {
-      if (unsubscribeRanking) unsubscribeRanking();
+      if (typeof unsubscribeRanking === "function") {
+        unsubscribeRanking();
+      }
       goHome();
     });
 }
